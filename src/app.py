@@ -314,7 +314,8 @@ if "simulation_decision" not in st.session_state:
 
 if "simulation_scenario" not in st.session_state:
     st.session_state.simulation_scenario = "NORMAL"
-
+if "simulation_step_count" not in st.session_state:
+    st.session_state.simulation_step_count = 0
 # ============================================================
 # LOAD ML MODELS
 # ============================================================
@@ -902,7 +903,7 @@ with col3:
         st.session_state.simulation_prediction = None
         st.session_state.simulation_decision = None
         st.session_state.simulation_scenario = "NORMAL"
-
+        st.session_state.simulation_step_count = 0  
         st.rerun()
 
 with col4:
@@ -927,6 +928,105 @@ st.caption(
 # ------------------------------------------------------------
 
 if st.session_state.simulation_running:
+
+    engine = st.session_state.simulation_engine
+
+    # Start the simulation if necessary
+    if not engine.simulation.running:
+        engine.simulation.start()
+
+    # Get current scenario multiplier
+    multiplier = (
+        engine.scenario_engine.get_arrival_multiplier()
+    )
+
+    # Run one autonomous simulation step
+    state = engine.simulation.step(
+        arrival_multiplier=multiplier
+    )
+
+    # ML predictions
+    prediction = engine.ml_engine.predict(
+        state
+    )
+
+    # AI decision
+    decision = engine.decision_engine.decide(
+        state,
+        prediction
+    )
+
+    action = decision.get(
+        "action",
+        "NO_ACTION"
+    )
+
+    new_counters = decision.get(
+        "new_counters",
+        state.get("active_counters", 1)
+    )
+
+    # Apply AI decision
+    if action in [
+        "OPEN_COUNTER",
+        "INCREASE_COUNTERS",
+        "PREPARE_COUNTER",
+        "MAX_COUNTERS"
+    ]:
+
+        engine.simulation.set_counters(
+            new_counters
+        )
+
+    # Update scenario
+    new_scenario = (
+        engine.scenario_engine.update_scenario(
+            state,
+            prediction
+        )
+    )
+
+    # Record impact
+    engine.impact.record_state(
+        state,
+        prediction,
+        decision
+    )
+
+    # Save current state
+    st.session_state.simulation_state = state
+    st.session_state.simulation_prediction = prediction
+    st.session_state.simulation_decision = decision
+    st.session_state.simulation_scenario = new_scenario
+
+    # Stop automatically after stabilization
+    if new_scenario == "STABILIZATION":
+
+        st.session_state.simulation_running = False
+
+        st.success(
+            "✅ Autonomous system reached STABILIZATION."
+        )
+
+    else:
+
+        # ----------------------------------------------------
+        # CONTINUOUS SIMULATION
+        # ----------------------------------------------------
+
+        import time
+
+        speed = st.session_state.simulation_speed
+
+        delay = {
+            1: 1.0,
+            2: 0.5,
+            5: 0.2
+        }.get(speed, 1.0)
+
+        time.sleep(delay)
+
+        st.rerun()
 
     engine = st.session_state.simulation_engine
 
