@@ -1436,14 +1436,18 @@ anomaly_features = [
 # Training data
 anomaly_data = df[anomaly_features].copy()
 
-# Train anomaly detector
-anomaly_model = IsolationForest(
-    n_estimators=100,
-    contamination=0.05,
-    random_state=42
-)
+# Train anomaly detector (cached so it only trains once, not every rerun)
+@st.cache_resource
+def get_anomaly_model(data):
+    model = IsolationForest(
+        n_estimators=100,
+        contamination=0.05,
+        random_state=42
+    )
+    model.fit(data)
+    return model
 
-anomaly_model.fit(anomaly_data)
+anomaly_model = get_anomaly_model(anomaly_data)
 
 # Current QueueSense conditions
 current_anomaly_input = pd.DataFrame([{
