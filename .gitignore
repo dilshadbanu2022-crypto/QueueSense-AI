@@ -1,0 +1,16 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Environment variables / secrets
+.env
+
+# Local databases
+*.db
+# Generated QR images
+data/*token*.png
+models/*_original.pkl
