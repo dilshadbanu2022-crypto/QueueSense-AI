@@ -319,18 +319,25 @@ if "simulation_scenario" not in st.session_state:
 # LOAD ML MODELS
 # ============================================================
 
-waiting_model = joblib.load("models/waiting_time_model.pkl")
-crowd_model = joblib.load("models/crowd_prediction_model.pkl")
-risk_model = joblib.load("models/crowd_risk_model.pkl")
+@st.cache_resource
+def load_models():
+    waiting_model = joblib.load("models/waiting_time_model.pkl")
+    crowd_model = joblib.load("models/crowd_prediction_model.pkl")
+    risk_model = joblib.load("models/crowd_risk_model.pkl")
+    return waiting_model, crowd_model, risk_model
 
+
+waiting_model, crowd_model, risk_model = load_models()
 # ============================================================
 # LOAD DATASET
 # ============================================================
 
-df = pd.read_csv(
-    "data/processed/processed_queue_data.csv"
-)
+@st.cache_data
+def load_data():
+    return pd.read_csv("data/processed/processed_queue_data.csv")
 
+
+df = load_data()
 # ============================================================
 # SIDEBAR - QUEUE CONTROLS
 # ============================================================
@@ -1243,104 +1250,112 @@ st.info(
 
 st.header("🤖 Model Comparison")
 
-st.caption(
-    "Compare different machine learning models for waiting-time prediction."
-)
+@st.cache_resource
+def train_comparison_models(df):
 
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
+    st.caption(
+        "Compare different machine learning models for waiting-time prediction."
+    )
 
-# Prepare training data
-X = df.drop(columns=["waiting_time"])
-y = df["waiting_time"]
+    from sklearn.linear_model import LinearRegression
+    from sklearn.metrics import mean_absolute_error, r2_score
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.model_selection import train_test_split
+    from xgboost import XGBRegressor
 
-# Convert categorical columns if present
-X = pd.get_dummies(X, drop_first=True)
+    # Prepare training data
+    X = df.drop(columns=["waiting_time"])
+    y = df["waiting_time"]
 
-# Fill any missing values
-X = X.fillna(0)
+    # Convert categorical columns if present
+    X = pd.get_dummies(X, drop_first=True)
 
-# Train/test split
-from sklearn.model_selection import train_test_split
+    # Fill any missing values
+    X = X.fillna(0)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42
-)
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42
+    )
 
-# -------------------------------
-# Linear Regression
-# -------------------------------
+        # -------------------------------
+    # Linear Regression
+    # -------------------------------
 
-linear_model = LinearRegression()
-linear_model.fit(X_train, y_train)
+    linear_model = LinearRegression()
+    linear_model.fit(X_train, y_train)
 
-linear_pred = linear_model.predict(X_test)
+    linear_pred = linear_model.predict(X_test)
 
-linear_mae = mean_absolute_error(y_test, linear_pred)
-linear_r2 = r2_score(y_test, linear_pred)
+    linear_mae = mean_absolute_error(y_test, linear_pred)
+    linear_r2 = r2_score(y_test, linear_pred)
 
-# -------------------------------
-# Random Forest
-# -------------------------------
+        # -------------------------------
+    # Random Forest
+    # -------------------------------
 
-comparison_rf = RandomForestRegressor(
-    n_estimators=100,
-    random_state=42,
-    n_jobs=-1
-)
+    comparison_rf = RandomForestRegressor(
+        n_estimators=100,
+        random_state=42,
+        n_jobs=-1
+    )
 
-comparison_rf.fit(X_train, y_train)
+    comparison_rf.fit(X_train, y_train)
 
-rf_pred = comparison_rf.predict(X_test)
+    rf_pred = comparison_rf.predict(X_test)
 
-rf_mae = mean_absolute_error(y_test, rf_pred)
-rf_r2 = r2_score(y_test, rf_pred)
+    rf_mae = mean_absolute_error(y_test, rf_pred)
+    rf_r2 = r2_score(y_test, rf_pred)
 
-# -------------------------------
-# XGBoost
-# -------------------------------
+    # -------------------------------
+    # XGBoost
+    # -------------------------------
 
-xgb_model = XGBRegressor(
-    n_estimators=100,
-    max_depth=6,
-    learning_rate=0.1,
-    random_state=42,
-    n_jobs=-1
-)
+    xgb_model = XGBRegressor(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        random_state=42,
+        n_jobs=-1
+    )
 
-xgb_model.fit(X_train, y_train)
+    xgb_model.fit(X_train, y_train)
 
-xgb_pred = xgb_model.predict(X_test)
+    xgb_pred = xgb_model.predict(X_test)
 
-xgb_mae = mean_absolute_error(y_test, xgb_pred)
-xgb_r2 = r2_score(y_test, xgb_pred)
+    xgb_mae = mean_absolute_error(y_test, xgb_pred)
+    xgb_r2 = r2_score(y_test, xgb_pred)
 
-# -------------------------------
-# Comparison table
-# -------------------------------
+        # -------------------------------
+    # Comparison table
+    # -------------------------------
 
-comparison_models = pd.DataFrame({
-    "Model": [
-        "Linear Regression",
-        "Random Forest",
-        "XGBoost"
-    ],
-    "MAE": [
-        round(linear_mae, 2),
-        round(rf_mae, 2),
-        round(xgb_mae, 2)
-    ],
-    "R² Score": [
-        round(linear_r2, 4),
-        round(rf_r2, 4),
-        round(xgb_r2, 4)
-    ]
-})
+    comparison_models = pd.DataFrame({
+        "Model": [
+            "Linear Regression",
+            "Random Forest",
+            "XGBoost"
+        ],
+        "MAE": [
+            round(linear_mae, 2),
+            round(rf_mae, 2),
+            round(xgb_mae, 2)
+        ],
+        "R² Score": [
+            round(linear_r2, 4),
+            round(rf_r2, 4),
+            round(xgb_r2, 4)
+        ]
+    })
+
+    return comparison_models, rf_mae
+
+
+# Run model comparison
+comparison_models, rf_mae = train_comparison_models(df)
 
 st.dataframe(
     comparison_models,
